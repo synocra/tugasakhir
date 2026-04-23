@@ -5,7 +5,7 @@ model = YOLO("ultralytics/cfg/models/11/yolo11.yaml")
 
 # Memulai proses pelatihan dengan parameter dari paper referensi
 model.train(
-    data="dataset.yaml",         # Ganti dengan path ke file dataset YAML kamu
+    data="/content/tugasakhir/dataset.yaml",         # Ganti dengan path ke file dataset YAML kamu
     epochs=60,                # Jumlah epoch
     imgsz=640,                # Resolusi gambar input
     batch=16,                 # Ukuran batch
