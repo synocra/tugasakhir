@@ -1,0 +1,12 @@
+path: /content/final_dataset
+
+train: train/images
+val: val/images
+
+names:
+  0: deformation
+  1: obstacle
+  2: rupture
+  3: disconnect
+  4: misalignment
+  5: deposition
