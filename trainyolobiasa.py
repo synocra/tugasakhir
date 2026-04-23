@@ -1,7 +1,7 @@
 from ultralytics import YOLO
 
 # Inisialisasi model dari file konfigurasi arsitektur YAML
-model = YOLO("ultralytics/cfg/models/11/yolo11.yaml")
+model = YOLO("yolo11x.pt")  # Memperbarui konfigurasi model dengan file YAML yang sesuai
 
 # Memulai proses pelatihan dengan parameter dari paper referensi
 model.train(
