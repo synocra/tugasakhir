@@ -1,12 +1,21 @@
-path: /content/final_dataset
+path: /content/tugasakhir/dataset
 
-train: train/images
-val: val/images
+train: images/train
+val: images/val
 
 names:
-  0: deformation
-  1: obstacle
-  2: rupture
-  3: disconnect
-  4: misalignment
-  5: deposition
+  0: RipeApple
+  1: MediumRipeApple
+  2: UnripeApple
+  3: RipeBanana
+  4: MediumRipeBanana
+  5: UnripeBanana
+  6: RipeGrape
+  7: MediumRipeGrape
+  8: UnripeGrape
+  9: RipeStrawberry
+  10: MediumRipeStrawberry
+  11: UnripeStrawberry
+  12: RipePersimmon
+  13: MediumRipePersimmon
+  14: UnripePersimmon
