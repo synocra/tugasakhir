@@ -1,19 +1,20 @@
 from ultralytics import YOLO
 
-# Inisialisasi model dari file konfigurasi arsitektur YAML
-model = YOLO("yolo11l.pt")  # Memperbarui konfigurasi model dengan file YAML yang sesuai
+# 1. Load model YOLOv11s (small)
+model = YOLO('yolo11s.pt') 
 
-# Memulai proses pelatihan dengan parameter dari paper referensi
-model.train(
-    data="data.yaml",         # Ganti dengan path ke file dataset YAML kamu
-    epochs=60,                # Jumlah epoch
-    imgsz=640,                # Resolusi gambar input
-    batch=16,                 # Ukuran batch
-    optimizer="Adam",         # Optimizer
-    lr0=0.001,                # Initial learning rate
-    device=0,                 # Gunakan GPU 0
-    project="yolo11_project", # Direktori utama penyimpanan hasil
-    name="train_baseline"     # Nama sub-direktori run ini
+# 2. Mulai Training dengan spesifikasi kamu
+results = model.train(
+    data='/content/tugasakhir/dataset/data.yaml', # Sesuaikan dengan lokasi file yaml kamu
+    epochs=100,                                  # Total 100 iterasi/epochs
+    imgsz=640,                                   # Ukuran input 640x640
+    batch=8,                                     # Batch size 8
+    momentum=0.94,                               # Momentum
+    lr0=0.01,                                    # Initial learning rate
+    lrf=0.01,                                    # Final learning rate (untuk cyclic/decay strategy)
+    weight_decay=0.0005,                         # Weight decay coefficient
+    device=0,                                    # Menggunakan GPU (CUDA)
+    project='tugas_akhir_yolo11',                # Nama project
+    name='fruit_ripeness_exp',                   # Nama eksperimen
+    cos_lr=True                                  # Mengaktifkan Cosine/Cyclic LR scheduler
 )
-
-print("Pelatihan selesai!")
