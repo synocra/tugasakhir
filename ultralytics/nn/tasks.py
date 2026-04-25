@@ -10,7 +10,6 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 
-from ultralytics.nn.modules import CoordAtt
 from ultralytics.nn.autobackend import check_class_names
 from ultralytics.nn.modules import (
     AIFI,
@@ -19,6 +18,7 @@ from ultralytics.nn.modules import (
     C2PSA,
     C3,
     C3TR,
+    CoordAtt,
     ELAN1,
     OBB,
     OBB26,
@@ -1609,7 +1609,7 @@ def parse_model(d, ch, verbose=True):
             SCDown,
             C2fCIB,
             A2C2f,
-            
+            CoordAtt,
         }
     )
     repeat_modules = frozenset(  # modules with 'repeat' arguments
