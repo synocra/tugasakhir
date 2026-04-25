@@ -10,6 +10,7 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 
+from ultralytics.nn.modules import CoordAtt
 from ultralytics.nn.autobackend import check_class_names
 from ultralytics.nn.modules import (
     AIFI,
@@ -44,7 +45,6 @@ from ultralytics.nn.modules import (
     Conv,
     Conv2,
     ConvTranspose,
-    CoordAtt,
     Detect,
     DWConv,
     DWConvTranspose2d,
