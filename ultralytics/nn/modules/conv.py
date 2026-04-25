@@ -8,7 +8,6 @@ import math
 import numpy as np
 import torch
 import torch.nn as nn
-from ultralytics.ultralytics.nn.modules.coord_att import h_swish
 
 __all__ = (
     "CBAM",
