@@ -16,7 +16,6 @@ Examples:
     >>> torch.onnx.export(m, x, f)
     >>> subprocess.run(f"onnxslim {f} {f} && open {f}", shell=True, check=True)  # pip install onnxslim
 """
-from .coord_att import CoordAtt
 from .block import (
     C1,
     C2,
@@ -76,7 +75,6 @@ from .conv import (
     LightConv,
     RepConv,
     SpatialAttention,
-    CoordAtt,
 )
 from .head import (
     OBB,
