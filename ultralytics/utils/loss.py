@@ -227,7 +227,8 @@ class BboxLoss(nn.Module):
         super().__init__()
         self.dfl_loss = DFLoss(reg_max) if reg_max > 1 else None
         self.wiou_loss = WiseIoULoss(ltype='wiou', monotone=True, beta=2.0, alpha=0.5)
-
+        print("[BboxLoss] ✓ Wise-IoU V3 AKTIF | ltype=wiou, beta=2.0, alpha=0.5, monotone=True")
+        
     def forward(
         self,
         pred_dist: torch.Tensor,
