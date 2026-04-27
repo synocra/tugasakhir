@@ -18,6 +18,119 @@ from .metrics import bbox_iou, probiou
 from .tal import bbox2dist, rbox2dist
 
 
+class WiseIoULoss(nn.Module):
+    """
+    Wise-IoU V3 Loss
+    Paper: "Wise-IoU: Bounding Box Regression Loss with Dynamic Focusing Mechanism"
+    
+    Args:
+        ltype   : tipe base IoU ('iou', 'wiou') — gunakan 'wiou' untuk V3
+        monotone: True = V3 (monotonic), False = V1/V2
+        beta    : eksponen focusing coefficient (default 2.0 untuk V3)
+        alpha   : eksponen penyeimbang outlier (default 0.5)
+        eps     : nilai kecil untuk stabilitas numerik
+    """
+
+    def __init__(self, ltype='wiou', monotone=True, beta=2.0, alpha=0.5, eps=1e-7):
+        super().__init__()
+        self.ltype    = ltype
+        self.monotone = monotone
+        self.beta     = beta
+        self.alpha    = alpha
+        self.eps      = eps
+
+    def forward(self, pred, target):
+        """
+        Args:
+            pred   : tensor [N, 4] format (x1, y1, x2, y2) atau (cx, cy, w, h)
+            target : tensor [N, 4] format sama dengan pred
+        Returns:
+            loss   : scalar tensor
+        """
+        # 1. Hitung IoU komponen
+        iou, ciou_loss, rho2, c2 = self._compute_iou_components(pred, target)
+
+        # 2. Hitung focusing coefficient r (inti Wise-IoU V3)
+        r = self._focusing_coefficient(pred, target, iou)
+
+        # 3. WIoU loss = r * CIoU_loss
+        wise_loss = r.detach() * ciou_loss
+
+        return wise_loss.mean()
+
+    def _compute_iou_components(self, box1, box2, xywh=False):
+        """Hitung IoU, CIoU loss, rho^2, dan c^2."""
+        if xywh:
+            # Konversi dari (cx, cy, w, h) ke (x1, y1, x2, y2)
+            b1_x1, b1_y1 = box1[..., 0] - box1[..., 2] / 2, box1[..., 1] - box1[..., 3] / 2
+            b1_x2, b1_y2 = box1[..., 0] + box1[..., 2] / 2, box1[..., 1] + box1[..., 3] / 2
+            b2_x1, b2_y1 = box2[..., 0] - box2[..., 2] / 2, box2[..., 1] - box2[..., 3] / 2
+            b2_x2, b2_y2 = box2[..., 0] + box2[..., 2] / 2, box2[..., 1] + box2[..., 3] / 2
+        else:
+            b1_x1, b1_y1, b1_x2, b1_y2 = box1[..., 0], box1[..., 1], box1[..., 2], box1[..., 3]
+            b2_x1, b2_y1, b2_x2, b2_y2 = box2[..., 0], box2[..., 1], box2[..., 2], box2[..., 3]
+
+        # Intersection area
+        inter_x1 = torch.max(b1_x1, b2_x1)
+        inter_y1 = torch.max(b1_y1, b2_y1)
+        inter_x2 = torch.min(b1_x2, b2_x2)
+        inter_y2 = torch.min(b1_y2, b2_y2)
+        inter    = (inter_x2 - inter_x1).clamp(0) * (inter_y2 - inter_y1).clamp(0)
+
+        # Union
+        w1, h1 = b1_x2 - b1_x1, b1_y2 - b1_y1
+        w2, h2 = b2_x2 - b2_x1, b2_y2 - b2_y1
+        union  = w1 * h1 + w2 * h2 - inter + self.eps
+
+        iou = inter / union
+
+        # Jarak pusat box (rho^2)
+        cx1, cy1 = (b1_x1 + b1_x2) / 2, (b1_y1 + b1_y2) / 2
+        cx2, cy2 = (b2_x1 + b2_x2) / 2, (b2_y1 + b2_y2) / 2
+        rho2 = (cx2 - cx1) ** 2 + (cy2 - cy1) ** 2
+
+        # Diagonal convex hull terkecil (c^2)
+        cw = torch.max(b1_x2, b2_x2) - torch.min(b1_x1, b2_x1)
+        ch = torch.max(b1_y2, b2_y2) - torch.min(b1_y1, b2_y1)
+        c2 = cw ** 2 + ch ** 2 + self.eps
+
+        # Aspect ratio term (CIoU)
+        v     = (4 / math.pi ** 2) * (torch.atan(w2 / (h2 + self.eps)) - torch.atan(w1 / (h1 + self.eps))) ** 2
+        with torch.no_grad():
+            alpha_ciou = v / (v - iou + (1 + self.eps))
+        ciou_loss = 1 - iou + rho2 / c2 + v * alpha_ciou
+
+        return iou, ciou_loss, rho2, c2
+
+    def _focusing_coefficient(self, pred, target, iou):
+        """
+        Hitung focusing coefficient r untuk Wise-IoU V3.
+        
+        r mengukur seberapa 'baik' anchor ini relatif terhadap rata-rata batch.
+        - Anchor bagus (iou tinggi)  → r kecil → gradien dikurangi
+        - Anchor jelek (iou rendah) → r besar → gradien diperkuat
+        """
+        if self.monotone:
+            # V3: Monotonic Focusing Mechanism
+            # dist = rata-rata jarak pusat pred ke target dalam batch
+            cx_pred, cy_pred = (pred[..., 0] + pred[..., 2]) / 2, (pred[..., 1] + pred[..., 3]) / 2
+            cx_gt,   cy_gt   = (target[..., 0] + target[..., 2]) / 2, (target[..., 1] + target[..., 3]) / 2
+
+            dist   = torch.sqrt((cx_pred - cx_gt) ** 2 + (cy_pred - cy_gt) ** 2 + self.eps)
+            dist_mean = dist.mean()
+
+            # Focusing ratio: anchor jelek punya dist > dist_mean → r > 1
+            r = (dist / dist_mean) ** self.beta
+
+            # Clamp untuk stabilitas
+            r = r.clamp(1e-4, 1e4)
+        else:
+            # V2: Non-monotonic (referensi, tidak disarankan untuk V3)
+            beta = (iou.detach() / iou.mean()) ** self.alpha
+            r    = beta
+        return r
+
+
 class VarifocalLoss(nn.Module):
     """Varifocal loss by Zhang et al.
 
