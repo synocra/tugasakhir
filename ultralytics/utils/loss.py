@@ -227,6 +227,8 @@ class BboxLoss(nn.Module):
         super().__init__()
         self.dfl_loss = DFLoss(reg_max) if reg_max > 1 else None
         self.wiou_loss = WiseIoULoss(ltype='wiou', monotone=True, beta=2.0, alpha=0.5)
+        print(f"\n[WIoU V3] Loss aktif: beta={wiou_beta}, "
+          f"alpha={wiou_alpha}, monotone={wiou_monotone}\n")
 
     def forward(
         self,
@@ -244,10 +246,6 @@ class BboxLoss(nn.Module):
         weight = target_scores.sum(-1)[fg_mask].unsqueeze(-1)
         use_wiou = getattr(self, 'use_wiou', False)  # flag dari config
         if use_wiou:
-            if not getattr(self, '_wiou_logged', False):
-                print(f"[WIoU V3] ACTIVE — beta={self.wiou_loss.beta}, "
-                    f"alpha={self.wiou_loss.alpha}, monotone={self.wiou_loss.monotone}")
-                self._wiou_logged = True
             loss_iou = self.wiou_loss(pred_bboxes[fg_mask], target_bboxes[fg_mask])
             iou = bbox_iou(pred_bboxes[fg_mask], target_bboxes[fg_mask], xywh=False, CIoU=True)  # masih perlu untuk weight
         else:
