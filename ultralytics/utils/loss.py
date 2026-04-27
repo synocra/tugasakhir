@@ -226,6 +226,7 @@ class BboxLoss(nn.Module):
         """Initialize the BboxLoss module with regularization maximum and DFL settings."""
         super().__init__()
         self.dfl_loss = DFLoss(reg_max) if reg_max > 1 else None
+        self.wiou_loss = WiseIoULoss(ltype='wiou', monotone=True, beta=2.0, alpha=0.5)
 
     def forward(
         self,
@@ -241,8 +242,17 @@ class BboxLoss(nn.Module):
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Compute IoU and DFL losses for bounding boxes."""
         weight = target_scores.sum(-1)[fg_mask].unsqueeze(-1)
-        iou = bbox_iou(pred_bboxes[fg_mask], target_bboxes[fg_mask], xywh=False, CIoU=True)
-        loss_iou = ((1.0 - iou) * weight).sum() / target_scores_sum
+        use_wiou = getattr(self, 'use_wiou', False)  # flag dari config
+        if use_wiou:
+            if not getattr(self, '_wiou_logged', False):
+                print(f"[WIoU V3] ACTIVE — beta={self.wiou_loss.beta}, "
+                    f"alpha={self.wiou_loss.alpha}, monotone={self.wiou_loss.monotone}")
+                self._wiou_logged = True
+            loss_iou = self.wiou_loss(pred_bboxes[fg_mask], target_bboxes[fg_mask])
+            iou = bbox_iou(pred_bboxes[fg_mask], target_bboxes[fg_mask], xywh=False, CIoU=True)  # masih perlu untuk weight
+        else:
+            iou = bbox_iou(pred_bboxes[fg_mask], target_bboxes[fg_mask], xywh=False, CIoU=True)
+            loss_iou = (1.0 - iou).mean()
 
         # DFL loss
         if self.dfl_loss:
@@ -476,6 +486,20 @@ class v8DetectionLoss:
             topk2=tal_topk2,
         )
         self.bbox_loss = BboxLoss(m.reg_max).to(device)
+        hyp = getattr(model, 'args', {}) or {}
+        use_wiou    = getattr(hyp, 'use_wiou', False)
+        wiou_beta   = getattr(hyp, 'wiou_beta', 2.0)
+        wiou_alpha  = getattr(hyp, 'wiou_alpha', 0.5)
+        wiou_mono   = getattr(hyp, 'wiou_monotone', True)
+        self.bbox_loss.use_wiou = use_wiou
+        if use_wiou:
+            self.bbox_loss.wiou_loss = WiseIoULoss(
+                ltype='wiou',
+                monotone=wiou_mono,
+                beta=wiou_beta,
+                alpha=wiou_alpha
+            ).to(device)
+            
         self.proj = torch.arange(m.reg_max, dtype=torch.float, device=device)
 
     def preprocess(self, targets: torch.Tensor, batch_size: int, scale_tensor: torch.Tensor) -> torch.Tensor:
