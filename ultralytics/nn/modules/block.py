@@ -69,19 +69,19 @@ class h_swish(nn.Module):
         return x * self.sigmoid(x)
 
 class CoordAtt(nn.Module):
-    def __init__(self, c1, c2, reduction=32):
+    def __init__(self, inp, oup, reduction=32):
         super(CoordAtt, self).__init__()
         self.pool_h = nn.AdaptiveAvgPool2d((None, 1))
         self.pool_w = nn.AdaptiveAvgPool2d((1, None))
 
-        mip = max(8, c1 // reduction)
+        mip = max(8, inp // reduction)
 
-        self.conv1 = nn.Conv2d(c1, mip, kernel_size=1, stride=1, padding=0)
+        self.conv1 = nn.Conv2d(inp, mip, kernel_size=1, stride=1, padding=0)
         self.bn1 = nn.BatchNorm2d(mip)
         self.act = h_swish()
         
-        self.conv_h = nn.Conv2d(mip, c2, kernel_size=1, stride=1, padding=0)
-        self.conv_w = nn.Conv2d(mip, c2, kernel_size=1, stride=1, padding=0)
+        self.conv_h = nn.Conv2d(mip, oup, kernel_size=1, stride=1, padding=0)
+        self.conv_w = nn.Conv2d(mip, oup, kernel_size=1, stride=1, padding=0)
 
     def forward(self, x):
         identity = x
