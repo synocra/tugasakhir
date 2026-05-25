@@ -19,36 +19,35 @@ from .tal import bbox2dist, rbox2dist
 
 
 class WiseIoULoss(nn.Module):
-    """
-    Wise-IoU V3 Loss
-    Paper: "Wise-IoU: Bounding Box Regression Loss with Dynamic Focusing Mechanism"
-    
+    """Wise-IoU V3 Loss Paper: "Wise-IoU: Bounding Box Regression Loss with Dynamic Focusing Mechanism".
+
     Args:
-        ltype   : tipe base IoU ('iou', 'wiou') — gunakan 'wiou' untuk V3
+        ltype: tipe base IoU ('iou', 'wiou') — gunakan 'wiou' untuk V3
         monotone: True = V3 (monotonic), False = V1/V2
-        beta    : eksponen focusing coefficient (default 2.0 untuk V3)
-        alpha   : eksponen penyeimbang outlier (default 0.5)
-        eps     : nilai kecil untuk stabilitas numerik
+        beta: eksponen focusing coefficient (default 2.0 untuk V3)
+        alpha: eksponen penyeimbang outlier (default 0.5)
+        eps: nilai kecil untuk stabilitas numerik
     """
 
-    def __init__(self, ltype='wiou', monotone=True, beta=2.0, alpha=0.5, eps=1e-7):
+    def __init__(self, ltype="wiou", monotone=True, beta=2.0, alpha=0.5, eps=1e-7):
         super().__init__()
-        self.ltype    = ltype
+        self.ltype = ltype
         self.monotone = monotone
-        self.beta     = beta
-        self.alpha    = alpha
-        self.eps      = eps
+        self.beta = beta
+        self.alpha = alpha
+        self.eps = eps
 
     def forward(self, pred, target):
         """
         Args:
-            pred   : tensor [N, 4] format (x1, y1, x2, y2) atau (cx, cy, w, h)
-            target : tensor [N, 4] format sama dengan pred
+            pred: tensor [N, 4] format (x1, y1, x2, y2) atau (cx, cy, w, h)
+            target: tensor [N, 4] format sama dengan pred
+
         Returns:
-            loss   : scalar tensor
+            loss: scalar tensor.
         """
         # 1. Hitung IoU komponen
-        iou, ciou_loss, rho2, c2 = self._compute_iou_components(pred, target)
+        iou, ciou_loss, _rho2, _c2 = self._compute_iou_components(pred, target)
 
         # 2. Hitung focusing coefficient r (inti Wise-IoU V3)
         r = self._focusing_coefficient(pred, target, iou)
@@ -75,12 +74,12 @@ class WiseIoULoss(nn.Module):
         inter_y1 = torch.max(b1_y1, b2_y1)
         inter_x2 = torch.min(b1_x2, b2_x2)
         inter_y2 = torch.min(b1_y2, b2_y2)
-        inter    = (inter_x2 - inter_x1).clamp(0) * (inter_y2 - inter_y1).clamp(0)
+        inter = (inter_x2 - inter_x1).clamp(0) * (inter_y2 - inter_y1).clamp(0)
 
         # Union
         w1, h1 = b1_x2 - b1_x1, b1_y2 - b1_y1
         w2, h2 = b2_x2 - b2_x1, b2_y2 - b2_y1
-        union  = w1 * h1 + w2 * h2 - inter + self.eps
+        union = w1 * h1 + w2 * h2 - inter + self.eps
 
         iou = inter / union
 
@@ -92,10 +91,10 @@ class WiseIoULoss(nn.Module):
         # Diagonal convex hull terkecil (c^2)
         cw = torch.max(b1_x2, b2_x2) - torch.min(b1_x1, b2_x1)
         ch = torch.max(b1_y2, b2_y2) - torch.min(b1_y1, b2_y1)
-        c2 = cw ** 2 + ch ** 2 + self.eps
+        c2 = cw**2 + ch**2 + self.eps
 
         # Aspect ratio term (CIoU)
-        v     = (4 / math.pi ** 2) * (torch.atan(w2 / (h2 + self.eps)) - torch.atan(w1 / (h1 + self.eps))) ** 2
+        v = (4 / math.pi**2) * (torch.atan(w2 / (h2 + self.eps)) - torch.atan(w1 / (h1 + self.eps))) ** 2
         with torch.no_grad():
             alpha_ciou = v / (v - iou + (1 + self.eps))
         ciou_loss = 1 - iou + rho2 / c2 + v * alpha_ciou
@@ -103,9 +102,8 @@ class WiseIoULoss(nn.Module):
         return iou, ciou_loss, rho2, c2
 
     def _focusing_coefficient(self, pred, target, iou):
-        """
-        Hitung focusing coefficient r untuk Wise-IoU V3.
-        
+        """Hitung focusing coefficient r untuk Wise-IoU V3.
+
         r mengukur seberapa 'baik' anchor ini relatif terhadap rata-rata batch.
         - Anchor bagus (iou tinggi)  → r kecil → gradien dikurangi
         - Anchor jelek (iou rendah) → r besar → gradien diperkuat
@@ -114,9 +112,9 @@ class WiseIoULoss(nn.Module):
             # V3: Monotonic Focusing Mechanism
             # dist = rata-rata jarak pusat pred ke target dalam batch
             cx_pred, cy_pred = (pred[..., 0] + pred[..., 2]) / 2, (pred[..., 1] + pred[..., 3]) / 2
-            cx_gt,   cy_gt   = (target[..., 0] + target[..., 2]) / 2, (target[..., 1] + target[..., 3]) / 2
+            cx_gt, cy_gt = (target[..., 0] + target[..., 2]) / 2, (target[..., 1] + target[..., 3]) / 2
 
-            dist   = torch.sqrt((cx_pred - cx_gt) ** 2 + (cy_pred - cy_gt) ** 2 + self.eps)
+            dist = torch.sqrt((cx_pred - cx_gt) ** 2 + (cy_pred - cy_gt) ** 2 + self.eps)
             dist_mean = dist.mean()
 
             # Focusing ratio: anchor jelek punya dist > dist_mean → r > 1
@@ -127,7 +125,7 @@ class WiseIoULoss(nn.Module):
         else:
             # V2: Non-monotonic (referensi, tidak disarankan untuk V3)
             beta = (iou.detach() / iou.mean()) ** self.alpha
-            r    = beta
+            r = beta
         return r
 
 
@@ -226,7 +224,7 @@ class BboxLoss(nn.Module):
         """Initialize the BboxLoss module with regularization maximum and DFL settings."""
         super().__init__()
         self.dfl_loss = DFLoss(reg_max) if reg_max > 1 else None
-        self.wiou_loss = WiseIoULoss(ltype='wiou', monotone=True, beta=2.0, alpha=0.5)
+        self.wiou_loss = WiseIoULoss(ltype="wiou", monotone=True, beta=2.0, alpha=0.5)
 
     def forward(
         self,
@@ -242,10 +240,12 @@ class BboxLoss(nn.Module):
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Compute IoU and DFL losses for bounding boxes."""
         weight = target_scores.sum(-1)[fg_mask].unsqueeze(-1)
-        use_wiou = getattr(self, 'use_wiou', False)  # flag dari config
+        use_wiou = getattr(self, "use_wiou", False)  # flag dari config
         if use_wiou:
             loss_iou = self.wiou_loss(pred_bboxes[fg_mask], target_bboxes[fg_mask])
-            iou = bbox_iou(pred_bboxes[fg_mask], target_bboxes[fg_mask], xywh=False, CIoU=True)  # masih perlu untuk weight
+            iou = bbox_iou(
+                pred_bboxes[fg_mask], target_bboxes[fg_mask], xywh=False, CIoU=True
+            )  # masih perlu untuk weight
         else:
             iou = bbox_iou(pred_bboxes[fg_mask], target_bboxes[fg_mask], xywh=False, CIoU=True)
             loss_iou = (1.0 - iou).mean()
@@ -482,20 +482,17 @@ class v8DetectionLoss:
             topk2=tal_topk2,
         )
         self.bbox_loss = BboxLoss(m.reg_max).to(device)
-        hyp = getattr(model, 'args', {}) or {}
-        use_wiou    = getattr(hyp, 'use_wiou', False)
-        wiou_beta   = getattr(hyp, 'wiou_beta', 2.0)
-        wiou_alpha  = getattr(hyp, 'wiou_alpha', 0.5)
-        wiou_mono   = getattr(hyp, 'wiou_monotone', True)
+        hyp = getattr(model, "args", {}) or {}
+        use_wiou = getattr(hyp, "use_wiou", False)
+        wiou_beta = getattr(hyp, "wiou_beta", 2.0)
+        wiou_alpha = getattr(hyp, "wiou_alpha", 0.5)
+        wiou_mono = getattr(hyp, "wiou_monotone", True)
         self.bbox_loss.use_wiou = use_wiou
         if use_wiou:
             self.bbox_loss.wiou_loss = WiseIoULoss(
-                ltype='wiou',
-                monotone=wiou_mono,
-                beta=wiou_beta,
-                alpha=wiou_alpha
+                ltype="wiou", monotone=wiou_mono, beta=wiou_beta, alpha=wiou_alpha
             ).to(device)
-            
+
         self.proj = torch.arange(m.reg_max, dtype=torch.float, device=device)
 
     def preprocess(self, targets: torch.Tensor, batch_size: int, scale_tensor: torch.Tensor) -> torch.Tensor:
