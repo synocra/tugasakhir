@@ -54,23 +54,28 @@ __all__ = (
     "TorchVision",
 )
 
+
 class h_sigmoid(nn.Module):
     def __init__(self, inplace=True):
-        super(h_sigmoid, self).__init__()
+        super().__init__()
         self.relu = nn.ReLU6(inplace=inplace)
+
     def forward(self, x):
         return self.relu(x + 3) / 6
 
+
 class h_swish(nn.Module):
     def __init__(self, inplace=True):
-        super(h_swish, self).__init__()
+        super().__init__()
         self.sigmoid = h_sigmoid(inplace=inplace)
+
     def forward(self, x):
         return x * self.sigmoid(x)
 
+
 class CoordAtt(nn.Module):
     def __init__(self, inp, oup, reduction=32):
-        super(CoordAtt, self).__init__()
+        super().__init__()
         self.pool_h = nn.AdaptiveAvgPool2d((None, 1))
         self.pool_w = nn.AdaptiveAvgPool2d((1, None))
 
@@ -79,21 +84,21 @@ class CoordAtt(nn.Module):
         self.conv1 = nn.Conv2d(inp, mip, kernel_size=1, stride=1, padding=0)
         self.bn1 = nn.BatchNorm2d(mip)
         self.act = h_swish()
-        
+
         self.conv_h = nn.Conv2d(mip, oup, kernel_size=1, stride=1, padding=0)
         self.conv_w = nn.Conv2d(mip, oup, kernel_size=1, stride=1, padding=0)
 
     def forward(self, x):
         identity = x
-        n, c, h, w = x.size()
+        _n, _c, h, w = x.size()
         x_h = self.pool_h(x)
         x_w = self.pool_w(x).permute(0, 1, 3, 2)
 
         y = torch.cat([x_h, x_w], dim=2)
         y = self.conv1(y)
         y = self.bn1(y)
-        y = self.act(y) 
-        
+        y = self.act(y)
+
         x_h, x_w = torch.split(y, [h, w], dim=2)
         x_w = x_w.permute(0, 1, 3, 2)
 
@@ -337,9 +342,21 @@ class C2(nn.Module):
 class C2f(nn.Module):
     """Faster Implementation of CSP Bottleneck with 2 convolutions."""
 
-    def __init__(self, c1: int, c2: int, n: int = 1, shortcut: bool = False, g: int = 1, e: float = 0.5,use_att:bool=False,reduction:int=16,useAvgPool:bool=False,in_shortcut:bool=False,att_type:str="CA_imp"):
-        """
-        Initialize a CSP bottleneck with 2 convolutions.
+    def __init__(
+        self,
+        c1: int,
+        c2: int,
+        n: int = 1,
+        shortcut: bool = False,
+        g: int = 1,
+        e: float = 0.5,
+        use_att: bool = False,
+        reduction: int = 16,
+        useAvgPool: bool = False,
+        in_shortcut: bool = False,
+        att_type: str = "CA_imp",
+    ):
+        """Initialize a CSP bottleneck with 2 convolutions.
 
         Args:
             c1 (int): Input channels.
@@ -354,24 +371,25 @@ class C2f(nn.Module):
         self.cv1 = Conv(c1, 2 * self.c, 1, 1)
         self.cv2 = Conv((2 + n) * self.c, c2, 1)  # optional act=FReLU(c2)
         self.m = nn.ModuleList(Bottleneck(self.c, self.c, shortcut, g, k=((3, 3), (3, 3)), e=1.0) for _ in range(n))
-        self.use_att=use_att
-        self.in_shortcut=in_shortcut
-        self.att_type=att_type
+        self.use_att = use_att
+        self.in_shortcut = in_shortcut
+        self.att_type = att_type
 
-        if self.use_att and self.att_type=="CA":
+        if self.use_att and self.att_type == "CA":
             if self.in_shortcut:
-                self.ca=CoordAtt(inp=(2 + n) * self.c,oup=(2 + n) * self.c,reduction=reduction)  # oup == (2 + n) * self.c
+                self.ca = CoordAtt(
+                    inp=(2 + n) * self.c, oup=(2 + n) * self.c, reduction=reduction
+                )  # oup == (2 + n) * self.c
             else:
-                self.ca=CoordAtt(inp=c2,oup=c2,reduction=reduction)  # oup == c2
-        print("Param", c2,g,n,e,use_att,att_type,reduction,useAvgPool)   
+                self.ca = CoordAtt(inp=c2, oup=c2, reduction=reduction)  # oup == c2
+        print("Param", c2, g, n, e, use_att, att_type, reduction, useAvgPool)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through C2f layer."""
-       
         y = list(self.cv1(x).chunk(2, 1))
         y.extend(m(y[-1]) for m in self.m)
-        
-        if self.use_att and self.att_type=="CA":
+
+        if self.use_att and self.att_type == "CA":
             if self.in_shortcut:
                 return self.cv2(self.ca(torch.cat(y, 1)))
             return self.ca(self.cv2(torch.cat(y, 1)))
@@ -379,11 +397,10 @@ class C2f(nn.Module):
 
     def forward_split(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass using split() instead of chunk()."""
-
         y = self.cv1(x).split((self.c, self.c), 1)
         y = [y[0], y[1]]
         y.extend(m(y[-1]) for m in self.m)
-        if self.use_att and self.att_type=="CA":
+        if self.use_att and self.att_type == "CA":
             return self.ca(self.cv2(torch.cat(y, 1)))
         return self.cv2(torch.cat(y, 1))
 
@@ -1151,11 +1168,9 @@ class C3k2(C2f):
         reduction: int = 16,
         useAvgPool: bool = False,
         in_shortcut: bool = False,
-        att_type: str = "CA_imp"
+        att_type: str = "CA_imp",
     ):
-    
-        """
-        Initialize C3k2 module.
+        """Initialize C3k2 module.
 
         Args:
             c1 (int): Input channels.
