@@ -16,6 +16,7 @@ Examples:
     >>> torch.onnx.export(m, x, f)
     >>> subprocess.run(f"onnxslim {f} {f} && open {f}", shell=True, check=True)  # pip install onnxslim
 """
+
 from .block import (
     C1,
     C2,
@@ -42,11 +43,11 @@ from .block import (
     C2fPSA,
     C3Ghost,
     C3k2,
-    CoordAtt,
     C3x,
     CBFuse,
     CBLinear,
     ContrastiveHead,
+    CoordAtt,
     GhostBottleneck,
     HGBlock,
     HGStem,
@@ -115,7 +116,6 @@ __all__ = (
     "C3TR",
     "CBAM",
     "CIB",
-    "CoordAtt",
     "DFL",
     "ELAN1",
     "MLP",
@@ -148,6 +148,7 @@ __all__ = (
     "Conv",
     "Conv2",
     "ConvTranspose",
+    "CoordAtt",
     "DWConv",
     "DWConvTranspose2d",
     "DeformableTransformerDecoder",
