@@ -126,9 +126,9 @@ copy_paste: 0.0 # (float) segmentation copy-paste probability
 copy_paste_mode: flip # (str) copy-paste strategy for segmentation: flip or mixup
 auto_augment: randaugment # (str) classification auto augmentation policy: randaugment, autoaugment, augmix
 erasing: 0.4 # (float) random erasing probability for classification (0.0–1.0)
-use_wiou: true      # aktifkan Wise-IoU V3 sebagai box regression loss
-wiou_beta: 2.0      # focusing exponent (rekomendasi: 1.5–3.0)
-wiou_alpha: 0.5     # outlier balancing exponent0
+use_wiou: true # aktifkan Wise-IoU V3 sebagai box regression loss
+wiou_beta: 2.0 # focusing exponent (rekomendasi: 1.5–3.0)
+wiou_alpha: 0.5 # outlier balancing exponent0
 wiou_monotone: true # true = V3 monotonic, false = V1/V2
 
 # Custom config.yaml ---------------------------------------------------------------------------------------------------
